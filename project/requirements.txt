@@ -1,0 +1,25 @@
+# Review Intelligence System – Python dependencies
+# Install torch separately to control CPU vs GPU (see below).
+
+# --- Step 1: Install PyTorch (choose one) ---
+# CPU-only (mid-end, ~200MB, no NVIDIA GPU):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+# GPU (high-end, ~2GB+ with CUDA):
+#   pip install torch
+
+# --- Step 2: Install the rest ---
+# pip install -r requirements.txt
+
+fastapi
+uvicorn[standard]
+transformers
+datasets
+mlflow
+chromadb
+sentence-transformers
+scikit-learn
+pandas
+numpy
+dvc
+pydantic-settings
+python-dotenv
