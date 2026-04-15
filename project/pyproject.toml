@@ -1,0 +1,31 @@
+[project]
+name = "review-intelligence-system"
+version = "0.1.0"
+description = "Sentiment-aware product review intelligence with FastAPI and MLOps foundations"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "transformers",
+  "accelerate>=1.1.0",
+  "datasets",
+  "mlflow",
+  "chromadb",
+  "sentence-transformers",
+  "scikit-learn",
+  "pandas",
+  "numpy",
+  "dvc",
+  "pydantic-settings",
+  "python-dotenv"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0.0"
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,58 +1,115 @@
 # Review Intelligence System
 
-Sentiment-aware product review system: fine-tuned DistilBERT, RAG + vector search, FastAPI. See [Project.md](Project.md) for the full plan.
+Sentiment-aware product review system using FastAPI, DistilBERT, and an MLOps-first workflow.
 
-## Quick start
+## Week 1 status
 
-- **Install:** See [INSTALL.md](INSTALL.md) (CPU-only vs GPU).
-- **Run API (later):** `uvicorn app.main:app --reload` from project root.
+- [x] Environment dependencies installed (CPU-friendly Torch path supported).
+- [x] Project structure created.
+- [x] `.env.example` and config scaffolding created.
+- [x] Preprocessing pipeline implemented (`load -> label -> stratified split -> save`).
+- [x] Unit tests added for label mapping and stratified split.
+- [x] Sanity run completed with `max_samples=1000`.
 
----
-
-## What to do next (Week 1)
-
-Requirements are installed. Do these in order:
-
-### 1. Initialize Git and DVC
+## Run locally
 
 ```bash
 cd ~/Desktop/MLops/project
-git init
-dvc init
+source ../venv/bin/activate
+uvicorn app.main:app --reload
 ```
 
-Commit the initial structure (venv stays outside project or is gitignored):
+Health endpoint:
 
 ```bash
-git add .
-git commit -m "Initial structure, gitignore, requirements"
+curl http://127.0.0.1:8000/health
 ```
 
-### 2. Add config and env template
+## Preprocessing commands
 
-- **`app/core/config.py`** — Load settings from environment (e.g. with `pydantic-settings`): `MODEL_PATH`, `CHROMA_PATH`, `MLFLOW_URI`, optional `OPENAI_API_KEY` (for RAG), and hardware-related: `MAX_SAMPLES`, `BATCH_SIZE`, `DEVICE` (e.g. `cpu`).
-- **`.env.example`** — List variable names and example values (no real secrets). Copy to `.env` and fill in locally; `.env` is gitignored.
+Run sanity data prep (used for Week 1):
 
-### 3. Data pipeline (preprocessing)
+```bash
+python -m src.data.preprocess --max-samples 1000 --output-dir data/processed
+```
 
-- **`src/data/preprocess.py`** — Implement:
-  - `load_and_clean(split, max_samples)` — Load `McAuley-Lab/Amazon-Reviews-2023`, subset `raw_review_Electronics`; map star rating to label: 1–2 → 0, 3 → 1, 4–5 → 2.
-  - Train/val/test split: 80/10/10, **stratified by label** (before any other processing).
-  - Optional: `tokenize(dataset, tokenizer, max_length=256)` with `DistilBertTokenizer`.
-- **Sanity check:** Run with `max_samples=1000`, confirm label distribution and split proportions. Use `data/processed/` for saved splits; later you can track with DVC.
+Run tests:
 
-### 4. Optional but useful
+```bash
+python -m pytest -q tests/test_src/test_preprocess.py
+```
 
-- **EDA:** Small script or notebook that loads a sample and plots rating/label distribution and review length.
-- **Tests:** `tests/test_src/data/test_preprocess.py` — test label mapping and stratification.
+## DVC quick start (repo root)
 
----
+If your git repo root is `~/Desktop/MLops`:
 
-## Week 1 exit criteria
+```bash
+cd ~/Desktop/MLops
+dvc init
+git add .dvc .gitignore
+git commit -m "Add DVC"
+git push
+```
 
-- [ ] Git and DVC inited, first commit done.
-- [ ] `app/core/config.py` and `.env.example` in place.
-- [ ] `src/data/preprocess.py` loads Electronics reviews, maps labels, produces stratified train/val/test (and optionally tokenizes).
-- [ ] Sanity run with 1000 samples succeeds.
+Then track first dataset artifact:
 
-Then you’re set for Week 2: fine-tuning and MLflow.
+```bash
+dvc add project/data/processed/train.parquet
+git add project/data/processed/train.parquet.dvc .gitignore
+git commit -m "Track processed train split with DVC"
+git push
+```
+
+## Week 2 commands
+
+### 1) DVC setup (repo root)
+
+```bash
+cd ~/Desktop/MLops
+source venv/bin/activate
+dvc --version
+dvc init
+git add .dvc .gitignore
+git commit -m "Initialize DVC"
+git push
+```
+
+### 2) Train baseline model (mid-end safe)
+
+```bash
+cd ~/Desktop/MLops/project
+source ../venv/bin/activate
+python -m src.training.train \
+  --data-dir data/processed \
+  --output-dir checkpoints/week2-distilbert \
+  --num-epochs 2 \
+  --train-batch-size 8 \
+  --eval-batch-size 16 \
+  --max-length 256 \
+  --max-train-samples 400 \
+  --max-eval-samples 100
+```
+
+### 3) MLflow UI
+
+```bash
+cd ~/Desktop/MLops/project
+source ../venv/bin/activate
+mlflow ui --backend-store-uri ./experiments/mlruns --host 0.0.0.0 --port 5000
+```
+
+### 4) Quick inference smoke test
+
+```bash
+cd ~/Desktop/MLops/project
+source ../venv/bin/activate
+python -c "from src.inference.predict import predict_text; print(predict_text('Battery life is excellent', model_path='checkpoints/week2-distilbert/best-model'))"
+```
+
+### 5) Run all tests
+
+```bash
+cd ~/Desktop/MLops/project
+source ../venv/bin/activate
+python -m pytest -q tests/test_src
+```

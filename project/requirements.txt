@@ -13,6 +13,7 @@
 fastapi
 uvicorn[standard]
 transformers
+accelerate>=1.1.0
 datasets
 mlflow
 chromadb
