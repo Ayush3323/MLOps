@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
     DataCollatorWithPadding,
+    EarlyStoppingCallback,
     Trainer,
     TrainingArguments,
 )
@@ -26,6 +28,7 @@ LABEL_NAMES = {0: "negative", 1: "neutral", 2: "positive"}
 
 @dataclass
 class TrainConfig:
+    profile: str
     data_dir: str
     output_dir: str
     model_name: str
@@ -38,16 +41,20 @@ class TrainConfig:
     seed: int
     max_train_samples: int | None
     max_eval_samples: int | None
+    gradient_accumulation_steps: int
+    warmup_ratio: float
+    early_stopping_patience: int | None
 
 
 def parse_args() -> argparse.Namespace:
     settings = get_settings()
     parser = argparse.ArgumentParser(description="Train DistilBERT sentiment model")
+    parser.add_argument("--profile", type=str, default="mid-end", choices=["mid-end", "high-end"])
     parser.add_argument("--data-dir", type=str, default=settings.processed_data_dir)
-    parser.add_argument("--output-dir", type=str, default="./checkpoints/week2-distilbert")
+    parser.add_argument("--output-dir", type=str, default="./checkpoints/week3-distilbert")
     parser.add_argument("--model-name", type=str, default=MODEL_NAME)
     parser.add_argument("--max-length", type=int, default=settings.max_length)
-    parser.add_argument("--num-epochs", type=int, default=2)
+    parser.add_argument("--num-epochs", type=int, default=None)
     parser.add_argument("--train-batch-size", type=int, default=settings.batch_size)
     parser.add_argument("--eval-batch-size", type=int, default=16)
     parser.add_argument("--learning-rate", type=float, default=2e-5)
@@ -55,11 +62,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-train-samples", type=int, default=None)
     parser.add_argument("--max-eval-samples", type=int, default=None)
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
+    parser.add_argument("--warmup-ratio", type=float, default=0.1)
+    parser.add_argument("--early-stopping-patience", type=int, default=2)
     return parser.parse_args()
+
+
+def apply_profile_defaults(args: argparse.Namespace) -> argparse.Namespace:
+    if args.profile == "mid-end":
+        if args.num_epochs is None:
+            args.num_epochs = 2
+        if args.max_train_samples is None:
+            args.max_train_samples = 2000
+        if args.max_eval_samples is None:
+            args.max_eval_samples = 400
+    else:
+        if args.num_epochs is None:
+            args.num_epochs = 3
+        if args.max_train_samples is None:
+            args.max_train_samples = None
+        if args.max_eval_samples is None:
+            args.max_eval_samples = 2000
+    return args
 
 
 def build_config(args: argparse.Namespace) -> TrainConfig:
     return TrainConfig(
+        profile=args.profile,
         data_dir=args.data_dir,
         output_dir=args.output_dir,
         model_name=args.model_name,
@@ -72,6 +101,9 @@ def build_config(args: argparse.Namespace) -> TrainConfig:
         seed=args.seed,
         max_train_samples=args.max_train_samples,
         max_eval_samples=args.max_eval_samples,
+        gradient_accumulation_steps=args.gradient_accumulation_steps,
+        warmup_ratio=args.warmup_ratio,
+        early_stopping_patience=args.early_stopping_patience,
     )
 
 
@@ -127,7 +159,7 @@ def compute_metrics(eval_pred: tuple[np.ndarray, np.ndarray]) -> dict[str, float
 def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
     settings = get_settings()
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    mlflow.set_experiment("review-intelligence-week2")
+    mlflow.set_experiment("review-intelligence-week3")
 
     splits = maybe_limit_samples(load_splits(cfg.data_dir), cfg)
     tokenizer = AutoTokenizer.from_pretrained(cfg.model_name)
@@ -152,14 +184,20 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
         learning_rate=cfg.learning_rate,
         per_device_train_batch_size=cfg.train_batch_size,
         per_device_eval_batch_size=cfg.eval_batch_size,
+        gradient_accumulation_steps=cfg.gradient_accumulation_steps,
+        warmup_ratio=cfg.warmup_ratio,
         num_train_epochs=cfg.num_epochs,
         weight_decay=cfg.weight_decay,
         seed=cfg.seed,
         load_best_model_at_end=True,
-        metric_for_best_model="f1_macro",
+        metric_for_best_model="eval_f1_macro",
         greater_is_better=True,
         report_to=[],
     )
+
+    callbacks = []
+    if cfg.early_stopping_patience is not None and cfg.early_stopping_patience > 0:
+        callbacks.append(EarlyStoppingCallback(early_stopping_patience=cfg.early_stopping_patience))
 
     trainer = Trainer(
         model=model,
@@ -168,6 +206,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
         eval_dataset=tokenized["validation"],
         data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
         compute_metrics=compute_metrics,
+        callbacks=callbacks,
     )
 
     with mlflow.start_run():
@@ -178,6 +217,17 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
         val_metrics = trainer.evaluate(eval_dataset=tokenized["validation"])
         test_metrics = trainer.evaluate(eval_dataset=tokenized["test"], metric_key_prefix="test")
         mlflow.log_metrics({k: float(v) for k, v in {**val_metrics, **test_metrics}.items()})
+
+        # Save confusion-matrix-ready predictions for later analysis.
+        test_pred = trainer.predict(tokenized["test"])
+        pred_labels = np.argmax(test_pred.predictions, axis=-1).tolist()
+        true_labels = test_pred.label_ids.tolist()
+        analysis_file = output_dir / "test_predictions.json"
+        analysis_file.write_text(
+            json.dumps({"pred_labels": pred_labels, "true_labels": true_labels}, indent=2),
+            encoding="utf-8",
+        )
+        mlflow.log_artifact(str(analysis_file), artifact_path="analysis")
 
         best_model_dir = output_dir / "best-model"
         trainer.save_model(str(best_model_dir))
@@ -192,7 +242,8 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
 
 
 def main() -> None:
-    cfg = build_config(parse_args())
+    args = apply_profile_defaults(parse_args())
+    cfg = build_config(args)
     results = train_and_evaluate(cfg)
     print("Training complete.")
     print(f"Best model saved to: {results['best_model_dir']}")

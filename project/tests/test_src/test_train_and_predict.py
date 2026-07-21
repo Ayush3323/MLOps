@@ -1,7 +1,8 @@
 import numpy as np
+import pytest
 
-from src.inference.predict import LABEL_MAP, label_id_to_name
-from src.training.train import compute_metrics
+from src.inference.predict import LABEL_MAP, SentimentPredictor, label_id_to_name
+from src.training.train import apply_profile_defaults, compute_metrics
 
 
 def test_compute_metrics_returns_expected_keys() -> None:
@@ -27,3 +28,22 @@ def test_label_mapping_contract() -> None:
     assert label_id_to_name(1) == "neutral"
     assert label_id_to_name(2) == "positive"
     assert set(LABEL_MAP.keys()) == {0, 1, 2}
+
+
+def test_predictor_rejects_empty_text() -> None:
+    predictor = SentimentPredictor(model_path="missing-checkpoint")
+    with pytest.raises(ValueError):
+        predictor.predict("   ")
+
+
+def test_profile_defaults_mid_end() -> None:
+    class Args:
+        profile = "mid-end"
+        num_epochs = None
+        max_train_samples = None
+        max_eval_samples = None
+
+    args = apply_profile_defaults(Args())
+    assert args.num_epochs == 2
+    assert args.max_train_samples == 2000
+    assert args.max_eval_samples == 400

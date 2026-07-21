@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import torch
@@ -33,6 +34,10 @@ class SentimentPredictor:
         self._model: AutoModelForSequenceClassification | None = None
 
     def _ensure_loaded(self) -> None:
+        if not Path(self.model_path).exists():
+            raise FileNotFoundError(
+                f"Model path does not exist: {self.model_path}. Train model first or set MODEL_PATH."
+            )
         if self._tokenizer is None:
             self._tokenizer = AutoTokenizer.from_pretrained(self.model_path)
         if self._model is None:
@@ -41,11 +46,15 @@ class SentimentPredictor:
             self._model.eval()
 
     def predict(self, text: str) -> PredictionResult:
+        cleaned_text = text.strip()
+        if not cleaned_text:
+            raise ValueError("Input text must not be empty.")
+
         self._ensure_loaded()
         assert self._tokenizer is not None
         assert self._model is not None
 
-        encoded = self._tokenizer(text, truncation=True, return_tensors="pt")
+        encoded = self._tokenizer(cleaned_text, truncation=True, return_tensors="pt")
         encoded = {k: v.to(self.device) for k, v in encoded.items()}
 
         with torch.no_grad():
