@@ -24,3 +24,5 @@ numpy
 dvc
 pydantic-settings
 python-dotenv
+pytest
+httpx

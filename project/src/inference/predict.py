@@ -28,7 +28,7 @@ class PredictionResult:
 class SentimentPredictor:
     def __init__(self, model_path: str | None = None, device: str | None = None):
         settings = get_settings()
-        self.model_path = model_path or settings.model_path
+        self.model_path = model_path or settings.resolved_model_path
         self.device = "cuda" if (device == "cuda" and torch.cuda.is_available()) else "cpu"
         self._tokenizer: AutoTokenizer | None = None
         self._model: AutoModelForSequenceClassification | None = None

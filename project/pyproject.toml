@@ -18,7 +18,9 @@ dependencies = [
   "numpy",
   "dvc",
   "pydantic-settings",
-  "python-dotenv"
+  "python-dotenv",
+  "pytest",
+  "httpx"
 ]
 
 [project.optional-dependencies]

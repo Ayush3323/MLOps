@@ -1,45 +1,54 @@
 # Installation Guide
 
+Repo: `/home/hodorinfo/Desktop/ML`  
+Project package: `project/`
+
 ## Why two options?
 
-The default `pip install torch` pulls in **CUDA (GPU) libraries** (~2GB+): nvidia-cublas, nvidia-cudnn, etc. That is heavy and not needed on a mid-end system without an NVIDIA GPU.
+Default `pip install torch` pulls **CUDA** libraries (~2GB+). On a mid-end laptop without an NVIDIA GPU, install **CPU-only** Torch instead.
 
-All other packages (fastapi, transformers, datasets, mlflow, chromadb, …) are required for this project and stay the same.
-
-## Mid-end (16GB RAM, 256GB SSD, no GPU or CPU-only)
-
-Use **CPU-only PyTorch** to save disk and download time:
+## Mid-end (16GB RAM, no GPU)
 
 ```bash
-cd ~/Desktop/MLops/project    # or your project path
-python3 -m venv ../venv       # or: venv in project/
-source ../venv/bin/activate  # or: venv\Scripts\activate on Windows
+cd /home/hodorinfo/Desktop/ML/project
+python3 -m venv ../venv
+source ../venv/bin/activate
 
-# 1. Install PyTorch CPU-only first (~200MB instead of ~2GB)
 pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-# 2. Install the rest (from project directory so requirements.txt is found)
 pip install -r requirements.txt
+pip install pytest
+cp -n .env.example .env
 ```
 
-## High-end (with NVIDIA GPU, or when you want CUDA)
+## High-end (NVIDIA GPU)
 
 ```bash
-source venv/bin/activate
+cd /home/hodorinfo/Desktop/ML/project
+source ../venv/bin/activate
 pip install torch
 pip install -r requirements.txt
+pip install pytest
+cp -n .env.example .env
 ```
 
-## What each group is for
+Set `DEVICE=cuda` in `.env` when a GPU is available.
 
-| Package | Use in project |
-|---------|----------------|
-| fastapi, uvicorn, pydantic-settings, python-dotenv | API (analyze, index, query) |
-| transformers, torch | Fine-tuning DistilBERT, inference |
-| datasets | Load Amazon Reviews from HuggingFace |
+## What each package is for
+
+| Package | Use |
+|---------|-----|
+| fastapi, uvicorn, pydantic-settings, python-dotenv | API |
+| transformers, torch, accelerate | Fine-tune DistilBERT + inference |
+| datasets | Load / stream review data |
 | mlflow | Experiment tracking |
-| chromadb, sentence-transformers | RAG, embeddings, vector search |
-| scikit-learn, pandas, numpy | Preprocessing, splits, metrics |
-| dvc | Data versioning |
+| chromadb, sentence-transformers | RAG embeddings + vector search |
+| scikit-learn, pandas, numpy | Preprocess, metrics |
+| dvc | Data versioning (install also usable from repo root) |
 
-Nothing listed here is redundant; the only “heavy” part you can avoid on mid-end is **CUDA** by using the CPU-only torch index.
+## Hugging Face cache
+
+Models download once into `~/.cache/huggingface/`. First train and first RAG index need network access.
+
+## Colab / other GPU machine
+
+Do **not** need CUDA Torch on this laptop for production training. Use `notebooks/colab_train.ipynb`, then copy the checkpoint back (see `notebooks/COLAB_EXPORT.md`).
