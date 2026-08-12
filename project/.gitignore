@@ -43,8 +43,10 @@ Thumbs.db
 # --- Data (large files; use DVC for versioned data) ---
 data/raw/*
 !data/raw/.gitkeep
+!data/raw/*.dvc
 data/processed/*
 !data/processed/.gitkeep
+!data/processed/*.dvc
 
 # --- MLflow ---
 experiments/

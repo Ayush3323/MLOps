@@ -1,6 +1,7 @@
 # Colab → local export checklist
 
-Use this after finishing `colab_train.ipynb` (or an equivalent GPU machine run).
+Use this after finishing `colab_train.ipynb` (or an equivalent GPU machine run).  
+Related: [docs/MODEL_LIFECYCLE.md](../docs/MODEL_LIFECYCLE.md), [docs/WORKFLOWS.md](../docs/WORKFLOWS.md).
 
 ## On Colab / GPU machine
 
@@ -12,15 +13,16 @@ Use this after finishing `colab_train.ipynb` (or an equivalent GPU machine run).
 3. Download `best-model.zip` from the Colab Files panel (or `files.download(...)`).
 4. Optional: download `mlruns` / `test_predictions.json` for analysis.
 
-## On this machine (`/home/hodorinfo/Desktop/ML`)
+## On this machine (repo with `project/`)
 
 1. Unzip into the project checkpoints dir:
    ```bash
-   cd /home/hodorinfo/Desktop/ML/project
+   cd /path/to/ML/project
    mkdir -p checkpoints/production-distilbert
    unzip ~/Downloads/best-model.zip -d checkpoints/production-distilbert
    # Ensure path is: checkpoints/production-distilbert/best-model/{config.json,model.safetensors,tokenizer*}
    ```
+   If the zip already contains a `best-model/` folder at the top level, adjust so the final path matches above.
 2. Point the API at the new weights:
    ```bash
    ln -sfn production-distilbert/best-model checkpoints/best-model
@@ -31,24 +33,32 @@ Use this after finishing `colab_train.ipynb` (or an equivalent GPU machine run).
    source ../venv/bin/activate
    python -c "from src.inference.predict import predict_text; print(predict_text('Battery life is excellent'))"
    ```
-4. Restart API:
+4. Restart API (required if uvicorn already loaded an older singleton):
    ```bash
-   uvicorn app.main:app --reload --port 8000
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
    ```
+
+## Naming note
+
+| Source | Typical directory |
+|--------|-------------------|
+| Local `train.py` default | `checkpoints/week3-distilbert/best-model` |
+| Colab notebook | `checkpoints/production-distilbert/best-model` |
+| API symlink | `checkpoints/best-model` → one of the above |
 
 ## Do **not** commit large weights to Git
 
-`checkpoints/` and `*.safetensors` are gitignored. Keep models on disk or in object storage / DVC remote.
+`checkpoints/` and `*.safetensors` are gitignored. Keep models on disk or in object storage / a large DVC remote.
 
 ## What stays on this machine vs Colab
 
 | Artifact | Keep where |
 |----------|------------|
 | Code (`project/`) | This machine + Git |
-| `data/processed/*.parquet` | This machine; track with DVC |
+| `data/processed/*.parquet` | This machine; track with DVC ([DVC.md](../../DVC.md)) |
 | Fine-tuned `best-model` | This machine after download; train on Colab |
 | `chroma_db/` | This machine (rebuild via `/api/index`) |
-| MLflow runs | Prefer this machine; Colab runs can be exported separately |
+| MLflow runs | Prefer this machine; Colab experiment name differs (`review-intelligence-colab`) |
 
 ## Optional: upload parquet to Colab instead of re-downloading Amazon data
 
@@ -57,4 +67,4 @@ Use this after finishing `colab_train.ipynb` (or an equivalent GPU machine run).
 # Upload train/validation/test.parquet to Colab /content/data/processed/
 ```
 
-Then skip streaming in the notebook and call train with `--data-dir /content/data/processed`.
+Then skip streaming in the notebook and train with `--data-dir /content/data/processed` (or the notebook’s equivalent cell).

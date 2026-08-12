@@ -1,3 +1,19 @@
+> **Historical / aspirational learning plan — not current-state docs.**
+>
+> Read this for the original 6-week curriculum and interview talking points.
+> For what the repo **actually implements today**, use:
+>
+> - [`README.md`](README.md) — quickstart + status
+> - [`docs/README.md`](docs/README.md) — high → low documentation suite
+>
+> **Implemented now:** FastAPI (not Django), DistilBERT train/infer, Chroma RAG with extractive/OpenAI/HF answers, MLflow logging, preprocess → parquet, local DVC sidecars.
+>
+> **Not implemented:** Django REST, Docker Compose, GitHub Actions quality gate, `src.training.evaluate`, Prometheus/Grafana, Celery, quantization pipeline.
+>
+> **Metrics:** “92% F1” / F1 ≥ 0.90 is a **target** for full-scale (e.g. Colab) training — not a guaranteed result of the default local smoke profile.
+
+---
+
 Before diving in, let me think about what project would genuinely level you up in model training while hitting the resume buzzwords that actually matter.
 
 The right project for you is a **Sentiment-Aware Product Review Intelligence System** — you'll fine-tune a transformer model (BERT/DistilBERT) on real-world text, build a full MLOps pipeline, expose it via an API (Django, since you know it), and add vector search + RAG on top. This hits: fine-tuning, MLOps, embeddings, RAG, vector databases, CI/CD for ML, REST APIs, Docker — all things that show up in senior ML/backend JDs.

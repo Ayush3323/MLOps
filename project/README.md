@@ -1,9 +1,10 @@
 # Review Intelligence System
 
-Sentiment-aware product review system using **FastAPI**, **DistilBERT**, **ChromaDB**, and an MLOps-first workflow.
+Sentiment-aware product review system using **FastAPI**, **DistilBERT**, **ChromaDB**, and MLflow.
 
-Repo path on this machine: `/home/hodorinfo/Desktop/ML`  
-App code lives in: `project/`
+- **Repository root:** parent of this folder (`../`) — Git + DVC live there  
+- **Working directory for Python:** this folder (`project/`)  
+- **Full docs:** [`docs/`](docs/README.md) (high → low)
 
 ---
 
@@ -16,36 +17,35 @@ App code lives in: `project/`
 | DistilBERT train + MLflow | Done (`src/training/train.py`) |
 | Inference + `POST /api/analyze` | Done |
 | RAG embeddings + `POST /api/index` / `POST /api/query` | Done (extractive by default) |
-| DVC initialized at repo root | Partial (`.dvc/` exists; track data next) |
+| Processed parquet + DVC sidecars | Present under `data/processed/` (DVC remote not configured) |
 | Docker / GitHub Actions / monitoring | Not yet |
 
-Current local checkpoint: `checkpoints/best-model` → `week3-distilbert/best-model`  
-Metrics on that smoke model are **low F1** (tiny data). Use Colab/GPU for a real train (see `notebooks/`).
+Typical local checkpoint symlink: `checkpoints/best-model` → `week3-distilbert/best-model`.  
+Smoke / tiny-data runs can show **low macro F1**. Use Colab/GPU for a serious train (see [`notebooks/`](notebooks/) and [`docs/MODEL_LIFECYCLE.md`](docs/MODEL_LIFECYCLE.md)).
 
 ---
 
-## Setup (this machine — CPU / mid-end)
+## Setup (CPU / mid-end)
 
 ```bash
-cd /home/hodorinfo/Desktop/ML/project
+cd /path/to/ML/project
 source ../venv/bin/activate   # create first if missing: python3 -m venv ../venv
 
-# CPU-only Torch (~200MB) — avoid full CUDA wheel
+# CPU-only Torch (~200MB) — avoid full CUDA wheel on laptops without NVIDIA
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
-pip install pytest
 
-cp .env.example .env   # already created if you cloned after this update
+cp -n .env.example .env
 ```
 
-First RAG call downloads **`sentence-transformers/all-MiniLM-L6-v2`** (~90MB) from Hugging Face once.
+Details: [`INSTALL.md`](INSTALL.md). First RAG call downloads **`sentence-transformers/all-MiniLM-L6-v2`** (~90MB) from Hugging Face once.
 
 ---
 
 ## Run the API
 
 ```bash
-cd /home/hodorinfo/Desktop/ML/project
+cd /path/to/ML/project
 source ../venv/bin/activate
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -66,54 +66,50 @@ curl -X POST http://127.0.0.1:8000/api/query \
   -d '{"question":"What do customers complain about?","sentiment_filter":"negative"}'
 ```
 
-Without `OPENAI_API_KEY` / `HF_API_KEY`, `/api/query` returns an **extractive** answer from retrieved reviews (no LLM download).
+Without `OPENAI_API_KEY` / `HF_API_KEY`, `/api/query` returns an **extractive** answer from retrieved reviews.  
+Full contract: [`docs/API.md`](docs/API.md). Interactive OpenAPI: `/docs` and `/redoc`.
 
 ---
 
-## Data prep (this machine)
+## Data prep
 
-Sanity (already ran ~1k rows locally):
+Local processed splits are typically built at **50k** samples (40k / 5k / 5k). Schema and DVC: [`docs/DATA.md`](docs/DATA.md).
 
 ```bash
-cd /home/hodorinfo/Desktop/ML/project
-source ../venv/bin/activate
+# Sanity / small run
 python -m src.data.preprocess --max-samples 1000 --output-dir data/processed
-```
 
-Scale-up for real training (CPU OK, takes longer; network required):
-
-```bash
+# Scale-up (network required; streams Amazon Electronics JSONL)
 python -m src.data.preprocess --max-samples 50000 --output-dir data/processed
 ```
+
+Do **not** pass `--tokenize` if you plan to train with `src.training.train` — training re-tokenizes from raw `text`.
 
 ---
 
 ## Training — where to run what
 
-| Task | Where | Command / notes |
-|------|--------|-----------------|
-| Smoke train (tiny) | **This machine** | `python -m src.training.train --profile mid-end` |
-| Real DistilBERT fine-tune (50k, 3 epochs) | **Colab T4 / other GPU** | See `notebooks/colab_train.ipynb` + `notebooks/COLAB_EXPORT.md` |
-| Embed + Chroma index | **This machine** | Via `/api/index` (MiniLM is CPU-friendly) |
-| Optional Mistral-7B **local** | **Other GPU 16GB+** | Not needed if you use HF Inference API key |
-| Optional OpenAI answers | **This machine** | Set `OPENAI_API_KEY` in `.env` |
-
-Mid-end smoke train:
+| Task | Where | Notes |
+|------|--------|-------|
+| Smoke train | This machine | `python -m src.training.train --profile mid-end` (caps train at 2k) |
+| Real DistilBERT fine-tune (~50k) | Colab T4 / GPU | [`notebooks/colab_train.ipynb`](notebooks/colab_train.ipynb) + [`notebooks/COLAB_EXPORT.md`](notebooks/COLAB_EXPORT.md) |
+| Embed + Chroma index | This machine | Via `/api/index` |
+| Optional OpenAI / HF answers | This machine | Set keys in `.env` |
 
 ```bash
 python -m src.training.train \
   --profile mid-end \
   --data-dir data/processed \
-  --output-dir checkpoints/week-local \
+  --output-dir checkpoints/week3-distilbert \
   --train-batch-size 8 \
   --eval-batch-size 16
 ```
 
-After Colab/GPU training, copy `best-model/` into `project/checkpoints/production-distilbert/` then:
+After Colab/GPU training:
 
 ```bash
 ln -sfn production-distilbert/best-model checkpoints/best-model
-# or set MODEL_PATH=./checkpoints/production-distilbert/best-model in .env
+# or: MODEL_PATH=./checkpoints/production-distilbert/best-model in .env
 ```
 
 MLflow UI:
@@ -122,39 +118,23 @@ MLflow UI:
 mlflow ui --backend-store-uri ./experiments/mlruns --host 0.0.0.0 --port 5000
 ```
 
+More: [`docs/MODEL_LIFECYCLE.md`](docs/MODEL_LIFECYCLE.md), [`docs/WORKFLOWS.md`](docs/WORKFLOWS.md).
+
 ---
 
-## DVC (repo root `/home/hodorinfo/Desktop/ML`)
+## DVC (from repository root)
 
-Data files under `project/data/` are gitignored. Version them with DVC:
-
-```bash
-cd /home/hodorinfo/Desktop/ML
-source venv/bin/activate
-pip install dvc
-
-# If .dvc/config is empty / incomplete:
-dvc init --force   # only if needed; keep existing .dvc if already valid
-
-dvc add project/data/processed/train.parquet
-dvc add project/data/processed/validation.parquet
-dvc add project/data/processed/test.parquet
-
-git add project/data/processed/*.dvc project/data/processed/.gitignore .dvc .gitignore
-git commit -m "Track processed Amazon review splits with DVC"
-```
-
-Push data to a remote when ready (`dvc remote add -d myremote ...` then `dvc push`). Until then, DVC still tracks local hashes.
+Data under `data/` is gitignored. Version processed parquet with DVC from the **repo root** (parent of `project/`). See [`../DVC.md`](../DVC.md) and [`docs/DATA.md`](docs/DATA.md).
 
 ---
 
 ## Tests
 
 ```bash
-cd /home/hodorinfo/Desktop/ML/project
-source ../venv/bin/activate
 python -m pytest -q
 ```
+
+See [`docs/TESTING.md`](docs/TESTING.md).
 
 ---
 
@@ -165,14 +145,15 @@ python -m pytest -q
 | `distilbert-base-uncased` | ~260MB | First train / tokenizer load |
 | `all-MiniLM-L6-v2` | ~90MB | First `/api/index` or embed |
 | Amazon Electronics JSONL | streamed | Preprocess |
-| Mistral-7B weights | ~14GB+ | **Only** if you load the model locally — prefer HF API |
+| Mistral-7B weights | ~14GB+ | **Only** if you load locally — prefer HF Inference API |
 
 ---
 
 ## Next roadmap
 
-1. Scale preprocess to 50k on this machine (or upload parquet to Colab).
-2. Fine-tune on Colab; download `best-model`; point `MODEL_PATH`.
-3. Aim for test **F1 macro ≥ 0.90**; compare runs in MLflow.
-4. Index a real review batch via `/api/index`; exercise `/api/query`.
-5. Later: Docker Compose, GitHub Actions quality gate, monitoring.
+1. Fine-tune on Colab at ~50k; promote checkpoint; aim for test **F1 macro ≥ 0.90**.
+2. Index a real review batch; exercise filtered `/api/query`.
+3. Commit DVC sidecars + configure a remote when sharing data.
+4. Later: Docker Compose, GitHub Actions quality gate, monitoring.
+
+Historical learning plan (Django-era aspirations): [`Project.md`](Project.md).
