@@ -13,11 +13,11 @@ Related: [docs/MODEL_LIFECYCLE.md](../docs/MODEL_LIFECYCLE.md), [docs/WORKFLOWS.
 3. Download `best-model.zip` from the Colab Files panel (or `files.download(...)`).
 4. Optional: download `mlruns` / `test_predictions.json` for analysis.
 
-## On this machine (repo with `project/`)
+## On this machine
 
-1. Unzip into the project checkpoints dir:
+1. Unzip into the checkpoints dir:
    ```bash
-   cd /path/to/ML/project
+   cd /path/to/ML
    mkdir -p checkpoints/production-distilbert
    unzip ~/Downloads/best-model.zip -d checkpoints/production-distilbert
    # Ensure path is: checkpoints/production-distilbert/best-model/{config.json,model.safetensors,tokenizer*}
@@ -30,7 +30,7 @@ Related: [docs/MODEL_LIFECYCLE.md](../docs/MODEL_LIFECYCLE.md), [docs/WORKFLOWS.
    ```
 3. Smoke test:
    ```bash
-   source ../venv/bin/activate
+   source venv/bin/activate
    python -c "from src.inference.predict import predict_text; print(predict_text('Battery life is excellent'))"
    ```
 4. Restart API (required if uvicorn already loaded an older singleton):
@@ -54,8 +54,8 @@ Related: [docs/MODEL_LIFECYCLE.md](../docs/MODEL_LIFECYCLE.md), [docs/WORKFLOWS.
 
 | Artifact | Keep where |
 |----------|------------|
-| Code (`project/`) | This machine + Git |
-| `data/processed/*.parquet` | This machine; track with DVC ([DVC.md](../../DVC.md)) |
+| Code | This machine + Git |
+| `data/processed/*.parquet` | This machine; track with DVC ([DVC.md](../DVC.md)) |
 | Fine-tuned `best-model` | This machine after download; train on Colab |
 | `chroma_db/` | This machine (rebuild via `/api/index`) |
 | MLflow runs | Prefer this machine; Colab experiment name differs (`review-intelligence-colab`) |

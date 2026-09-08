@@ -76,7 +76,7 @@ python -m src.data.preprocess --max-samples 50000 --output-dir data/processed
 | Pipeline | No `dvc.yaml` — manual `dvc add` |
 | Raw data | Not tracked |
 
-Commands: [DVC.md](../../DVC.md). After regenerating parquet, re-run `dvc add` on the three files and commit the `.dvc` pointers.
+Commands: [DVC.md](../DVC.md). After regenerating parquet, re-run `dvc add` on the three files and commit the `.dvc` pointers.
 
 Collaborators without a remote must copy parquet (or re-run preprocess) manually.
 

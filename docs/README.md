@@ -25,9 +25,9 @@ Read top → bottom for a high-level-to-low-level understanding of the Review In
 | Doc | Role |
 |-----|------|
 | [../README.md](../README.md) | Project quickstart + status checklist |
-| [../../README.md](../../README.md) | Repository root landing page |
+| [../README.md](../README.md) | Repository root landing page |
 | [../INSTALL.md](../INSTALL.md) | CPU vs GPU install |
-| [../../DVC.md](../../DVC.md) | DVC track / update / remote |
+| [../DVC.md](../DVC.md) | DVC track / update / remote |
 | [../notebooks/COLAB_EXPORT.md](../notebooks/COLAB_EXPORT.md) | Colab checkpoint → local |
 | [../Project.md](../Project.md) | Historical / aspirational learning plan |
 

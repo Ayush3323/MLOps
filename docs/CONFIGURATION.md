@@ -1,7 +1,7 @@
 # Configuration
 
 Settings live in [`app/core/config.py`](../app/core/config.py) via **pydantic-settings**.  
-Load order: environment variables / `.env` (cwd = `project/`) with case-insensitive keys. Template: [`.env.example`](../.env.example).
+Load order: environment variables / `.env` (cwd = repo root) with case-insensitive keys. Template: [`.env.example`](../.env.example).
 
 ```bash
 cp -n .env.example .env

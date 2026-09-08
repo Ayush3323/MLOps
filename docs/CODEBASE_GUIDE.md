@@ -1,6 +1,6 @@
 # Codebase guide
 
-Working directory for imports and CLIs: `project/`.
+Working directory for imports and CLIs: repo root.
 
 ## Recommended reading order (source)
 
@@ -16,7 +16,7 @@ Working directory for imports and CLIs: `project/`.
 ## Tree (substantive)
 
 ```text
-project/
+ML/                              # git + DVC root
 ├── app/
 │   ├── main.py                 # FastAPI app, GET /health
 │   ├── core/config.py          # Settings, resolve_model_path

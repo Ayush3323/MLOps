@@ -54,8 +54,8 @@ There is **no web UI** in the current codebase — clients are curl, scripts, or
 
 ## Repository shape
 
-- **Git/DVC root:** parent of `project/`
-- **App package:** `project/` (`app/` HTTP, `src/` ML)
+- **Git/DVC root:** this directory
+- **App package:** `app/` (HTTP), `src/` (ML) — no separate nested project folder
 - **Docs:** [`README.md`](README.md) in this folder
 
 Next: [ARCHITECTURE.md](ARCHITECTURE.md).

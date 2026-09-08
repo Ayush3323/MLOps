@@ -3,8 +3,8 @@
 ## How to run
 
 ```bash
-cd /path/to/ML/project
-source ../venv/bin/activate
+cd /path/to/ML
+source venv/bin/activate
 python -m pytest -q
 ```
 

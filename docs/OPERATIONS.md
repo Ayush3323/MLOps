@@ -6,7 +6,7 @@
 
 Not implemented: Docker image (empty [`docker/Dockerfile`](../docker/Dockerfile)), Compose, K8s, reverse proxy TLS, process supervisors beyond what you add yourself.
 
-## Artifact locations (cwd = `project/`)
+## Artifact locations (cwd = repo root)
 
 | Artifact | Path | Git |
 |----------|------|-----|
@@ -77,7 +77,7 @@ Assume the API is **trusted-network / localhost** until hardened.
 
 ## Data sharing
 
-Use DVC remotes when ready ([DVC.md](../../DVC.md)). Until then, share parquet out-of-band or regenerate with preprocess.
+Use DVC remotes when ready ([DVC.md](../DVC.md)). Until then, share parquet out-of-band or regenerate with preprocess.
 
 ## Process notes
 

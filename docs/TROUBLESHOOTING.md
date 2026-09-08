@@ -51,13 +51,13 @@
 
 **Cause:** DVC remote not configured.
 
-**Fix:** Re-run preprocess locally, copy parquet, or `dvc remote add` + `dvc push`/`pull` — [DVC.md](../../DVC.md).
+**Fix:** Re-run preprocess locally, copy parquet, or `dvc remote add` + `dvc push`/`pull` — [DVC.md](../DVC.md).
 
 ## Import errors for `app` or `src`
 
 **Cause:** Wrong working directory.
 
-**Fix:** Always run from `project/` (or rely on pytest `pythonpath`). Activate the repo `venv`.
+**Fix:** Always run from the repo root (or rely on pytest `pythonpath`). Activate the repo `venv`.
 
 ## Torch install is multi-GB on a laptop
 

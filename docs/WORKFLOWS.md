@@ -3,13 +3,13 @@
 All Python commands assume:
 
 ```bash
-cd /path/to/ML/project
-source ../venv/bin/activate
+cd /path/to/ML
+source venv/bin/activate
 ```
 
 ## 1. First-time setup
 
-1. Create venv at repo root: `python3 -m venv ../venv`
+1. Create venv at repo root: `python3 -m venv venv`
 2. Install Torch (CPU or GPU) then `pip install -r requirements.txt` — see [INSTALL.md](../INSTALL.md)
 3. `cp -n .env.example .env`
 4. Ensure a checkpoint exists under `checkpoints/` (train locally or import from Colab)
@@ -26,13 +26,13 @@ Optional DVC (from **repo root**):
 
 ```bash
 cd /path/to/ML
-dvc add project/data/processed/train.parquet
-dvc add project/data/processed/validation.parquet
-dvc add project/data/processed/test.parquet
-git add project/data/processed/*.dvc .gitignore
+dvc add data/processed/train.parquet
+dvc add data/processed/validation.parquet
+dvc add data/processed/test.parquet
+git add data/processed/*.dvc .gitignore
 ```
 
-Details: [DATA.md](DATA.md), [DVC.md](../../DVC.md).
+Details: [DATA.md](DATA.md), [DVC.md](../DVC.md).
 
 ## 3A. Local smoke training (CPU)
 
