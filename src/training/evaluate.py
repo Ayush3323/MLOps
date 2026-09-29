@@ -4,8 +4,11 @@ import argparse
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
+import numpy as np
 from datasets import Dataset, load_dataset
+from sklearn.metrics import classification_report, confusion_matrix
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -15,7 +18,7 @@ from transformers import (
 )
 
 from app.core.config import get_settings
-from src.training.train import compute_metrics
+from src.training.train import LABEL_NAMES, compute_metrics
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,6 +42,11 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         help="Optional path to write the metrics as JSON",
+    )
+    parser.add_argument(
+        "--per-class",
+        action="store_true",
+        help="Also report per-class precision/recall/F1 and a confusion matrix",
     )
     return parser.parse_args()
 
@@ -71,7 +79,8 @@ def evaluate(
     split: str,
     max_length: int,
     batch_size: int,
-) -> dict[str, float]:
+    per_class: bool = False,
+) -> dict[str, Any]:
     if not Path(model_path).exists():
         raise FileNotFoundError(f"Model path does not exist: {model_path}")
 
@@ -90,19 +99,58 @@ def evaluate(
             data_collator=DataCollatorWithPadding(tokenizer=tokenizer),
             compute_metrics=compute_metrics,
         )
-        raw_metrics = trainer.evaluate(eval_dataset=dataset, metric_key_prefix=split)
+        # predict() runs the same single forward pass as evaluate() but also
+        # returns raw logits/labels, so per-class stats don't need a second pass.
+        output = trainer.predict(dataset, metric_key_prefix=split)
 
-    return {k: float(v) for k, v in raw_metrics.items()}
+    metrics: dict[str, Any] = {k: float(v) for k, v in output.metrics.items()}
+
+    if per_class:
+        preds = np.argmax(output.predictions, axis=-1)
+        labels = output.label_ids
+        target_names = [LABEL_NAMES[i] for i in sorted(LABEL_NAMES)]
+        report = classification_report(
+            labels, preds, target_names=target_names, output_dict=True, zero_division=0
+        )
+        metrics["per_class_report"] = report
+        metrics["confusion_matrix"] = {
+            "labels": target_names,
+            "matrix": confusion_matrix(labels, preds).tolist(),
+        }
+
+    return metrics
 
 
 def main() -> None:
     args = parse_args()
-    metrics = evaluate(args.model, args.data_dir, args.split, args.max_length, args.batch_size)
+    metrics = evaluate(
+        args.model, args.data_dir, args.split, args.max_length, args.batch_size, args.per_class
+    )
 
     print(f"Model: {args.model}")
     print(f"Split: {args.split} ({args.data_dir})")
     for key, value in metrics.items():
+        if key in ("per_class_report", "confusion_matrix"):
+            continue
         print(f"  {key}: {value:.4f}")
+
+    if "per_class_report" in metrics:
+        print("\nPer-class report:")
+        for label, stats in metrics["per_class_report"].items():
+            if not isinstance(stats, dict):
+                continue
+            print(
+                f"  {label:12} precision={stats['precision']:.3f} "
+                f"recall={stats['recall']:.3f} f1={stats['f1-score']:.3f} "
+                f"support={int(stats['support'])}"
+            )
+
+        cm = metrics["confusion_matrix"]
+        col_labels = cm["labels"]
+        print("\nConfusion matrix (rows=true, cols=predicted):")
+        print("              " + "".join(f"{l:>10}" for l in col_labels))
+        for true_label, row in zip(col_labels, cm["matrix"]):
+            print(f"  {true_label:10}" + "".join(f"{v:10d}" for v in row))
 
     if args.output:
         Path(args.output).write_text(json.dumps(metrics, indent=2), encoding="utf-8")
