@@ -244,6 +244,7 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
         mlflow.log_param("mlflow_tracking_uri", settings.mlflow_tracking_uri)
 
         trainer.train()
+        trainer.remove_callback(EarlyStoppingCallback)
         val_metrics = trainer.evaluate(eval_dataset=tokenized["validation"])
         test_metrics = trainer.evaluate(eval_dataset=tokenized["test"], metric_key_prefix="test")
         mlflow.log_metrics({k: float(v) for k, v in {**val_metrics, **test_metrics}.items()})
