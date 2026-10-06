@@ -8,8 +8,11 @@ from typing import Any
 
 import mlflow
 import numpy as np
+import torch
+import torch.nn as nn
 from datasets import DatasetDict, load_dataset
 from sklearn.metrics import accuracy_score, f1_score
+from sklearn.utils.class_weight import compute_class_weight
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -147,6 +150,25 @@ def tokenize_splits(splits: DatasetDict, tokenizer: AutoTokenizer, max_length: i
     return tokenized
 
 
+class WeightedLossTrainer(Trainer):
+    """Trainer that weights CrossEntropyLoss by inverse class frequency.
+
+    Amazon reviews skew ~80% positive / ~7% neutral; unweighted loss lets the
+    model ignore the rare class and still score high accuracy while f1_macro
+    tanks. class_weights fixes that at the loss, not by resampling data.
+    """
+
+    def __init__(self, *args: Any, class_weights: torch.Tensor, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.class_weights = class_weights.to(self.args.device)
+
+    def compute_loss(self, model, inputs, return_outputs=False, **kwargs):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        loss = nn.functional.cross_entropy(outputs.logits, labels, weight=self.class_weights)
+        return (loss, outputs) if return_outputs else loss
+
+
 def compute_metrics(eval_pred: tuple[np.ndarray, np.ndarray]) -> dict[str, float]:
     logits, labels = eval_pred
     preds = np.argmax(logits, axis=-1)
@@ -199,7 +221,15 @@ def train_and_evaluate(cfg: TrainConfig) -> dict[str, Any]:
     if cfg.early_stopping_patience is not None and cfg.early_stopping_patience > 0:
         callbacks.append(EarlyStoppingCallback(early_stopping_patience=cfg.early_stopping_patience))
 
-    trainer = Trainer(
+    class_weights = torch.tensor(
+        compute_class_weight(
+            "balanced", classes=np.array([0, 1, 2]), y=tokenized["train"]["labels"]
+        ),
+        dtype=torch.float,
+    )
+
+    trainer = WeightedLossTrainer(
+        class_weights=class_weights,
         model=model,
         args=args,
         train_dataset=tokenized["train"],
