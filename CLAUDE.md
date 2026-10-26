@@ -106,3 +106,13 @@ Tests are fast/mocked by design: API tests override `get_predictor`/`get_rag_pip
 Amazon Electronics reviews are streamed and mapped to 3-class sentiment: rating ≤2 → negative (0), 3 → neutral (1), ≥4 → positive (2). Splits are stratified 80/10/10 with `seed=42`. Processed parquet lives in `data/processed/`, is gitignored, and is versioned with DVC in place (see `DVC.md`) — DVC has no remote configured yet, so `dvc push`/`pull` need one set up first before they're useful across machines.
 
 Smoke/local training runs on small sample counts and can show low macro F1 — this is expected and not a regression; a serious fine-tune needs Colab/GPU at ~50k samples.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

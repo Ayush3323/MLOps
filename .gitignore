@@ -88,3 +88,6 @@ logs/
 # --- Misc ---
 *.bak
 .cache/
+
+
+graphify-out
